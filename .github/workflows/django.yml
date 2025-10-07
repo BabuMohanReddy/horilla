@@ -52,9 +52,9 @@ jobs:
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: $IMAGE_NAME:$TAG
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.TAG }}
           format: table
-          exit-code: "0"  # Change to "1" to fail on vulnerabilities
+          exit-code: "0"  # Set to "1" to fail the build on vulnerabilities
           vuln-type: os,library
           severity: CRITICAL,HIGH
         continue-on-error: true
@@ -75,21 +75,24 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
 
-      - name: Deploy via Docker Compose (Remote)
+      - name: Deploy to Server
         uses: appleboy/ssh-action@v0.1.7
         with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             echo "Pulling updated Docker image..."
-            docker pull $IMAGE_NAME:$TAG
+            docker pull ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+
+            echo "Navigating to app directory..."
+            cd /home/${{ secrets.SERVER_USER }}/horilla || exit 1
 
             echo "Stopping and removing existing containers..."
-            docker-compose -f /home/${{ secrets.REMOTE_USER }}/horilla/docker-compose.yml down || true
+            docker-compose down || true
 
             echo "Starting updated containers..."
-            docker-compose -f /home/${{ secrets.REMOTE_USER }}/horilla/docker-compose.yml up -d --build
+            docker-compose up -d --build
 
             echo "Running Django Migrations..."
             docker exec web python manage.py migrate || true
@@ -101,4 +104,4 @@ jobs:
             docker ps -a
 
             echo "Web container logs:"
-            docker logs $(docker ps -aqf "name=web")
+            docker logs web || echo "No logs found for 'web'"
