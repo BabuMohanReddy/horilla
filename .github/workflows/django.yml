@@ -83,26 +83,29 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           command_timeout: 60m
           script: |
-            echo "Pulling updated Docker image..."
-            docker pull ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+            echo "===== Logging in to Docker Hub on EC2 ====="
+            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-            echo "Navigating to app directory..."
+            echo "===== Navigating to app directory ====="
             cd /home/${{ secrets.SERVER_USER }}/horilla || exit 1
 
-            echo "Stopping and removing existing containers..."
-            docker-compose down || true
+            echo "===== Pulling updated images from Docker Hub ====="
+            docker compose pull
 
-            echo "Starting updated containers..."
-            docker-compose up -d --build
+            echo "===== Stopping existing containers ====="
+            docker compose down || true
 
-            echo "Running Django Migrations..."
+            echo "===== Starting containers with latest image ====="
+            docker compose up -d
+
+            echo "===== Running Django migrations ====="
             docker exec web python manage.py migrate || true
 
-            echo "Cleaning up old images..."
+            echo "===== Cleaning up unused images ====="
             docker image prune -f
 
-            echo "Docker containers status:"
+            echo "===== Docker containers status ====="
             docker ps -a
 
-            echo "Web container logs:"
+            echo "===== Web container logs ====="
             docker logs web || echo "No logs found for 'web'"
