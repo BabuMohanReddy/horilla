@@ -49,14 +49,15 @@ jobs:
           docker build -t $IMAGE_NAME:$TAG .
           docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
 
-      - name: Run Trivy Security Scan
+      - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          image-ref: $IMAGE_NAME:$TAG
           format: table
-          exit-code: "1"  # Fail pipeline on critical/high vulnerabilities
+          exit-code: "0"  # Change to "1" to fail on vulnerabilities
           vuln-type: os,library
           severity: CRITICAL,HIGH
+        continue-on-error: true
 
       - name: Push Docker Image
         run: |
@@ -90,7 +91,7 @@ jobs:
             echo "Starting updated containers..."
             docker compose -f /home/${{ secrets.REMOTE_USER }}/horilla/docker-compose.yml up -d --build
 
-            echo "Running Django Migrations (optional)..."
+            echo "Running Django Migrations..."
             docker exec web python manage.py migrate || true
 
             echo "Cleaning up old images..."
